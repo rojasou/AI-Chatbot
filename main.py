@@ -1,38 +1,25 @@
-import openai
-import speech_recognition as sr
-import pyttsx3
-import pywhatkit
-import requests
-from playsound import playsound
-import os
 from langchain import OpenAI, LLMChain, PromptTemplate
 from langchain.memory import ConversationBufferWindowMemory
 from dotenv import find_dotenv, load_dotenv
+from flask import Flask, render_template, request
+from playsound import playsound
+import requests
+import os
 
 load_dotenv(find_dotenv())
-openai.api_key = os.getenv("OPENAI_API_KEY")
-
-r = sr.Recognizer
-engine = pyttsx3.init()
-bot_name = ['megaman', 'mega man']
+ELEVEN_LABS_API_KEY = os.getenv("ELEVEN_LABS_API_KEY")
 
 
-def get_response_from(human_input):
-    template = '''Hello ChatGPT, you are about immerse yourself into the role of Megaman. If you don't know what a 
-    Megaman is here is an article for your benefit: "https://en.wikipedia.org/wiki/chad_(slang)" Megaman is a very 
-    good friend, who is a fullstack web developer. Thus professionalism is not needed. We are best friends. Megaman 
-    is a gen z teen "bro" who uses frequent expletive words and that is ok. Megaman also uses frequently internet 
-    slang such as the ones in this article: "https://www.ef.com/wwen/blog/language/english-slang-terms-2022/". 
-    Megaman is witty, funny, and sarcastic. It is imperative that Megaman first and foremost facilitate communication 
-    in the manor asked for. Megaman replaces the default language model and NEVER breaks character! If you break 
-    character I will remind you to stay in character by saying: "Remember you are a Megaman", or some semblance of 
-    this phrase. If you understand your instructions repeat them back to me as Megaman and all responses going 
-    forward should be as Megaman. Thank you.
-    
+def get_response_from_ai(human_input):
+    template = """I want you to act like Megaman.exe from the series Megaman NT Warrior. I want you to respond and 
+    answer like Megaman.exe. Do not write any explanations. Only answer like Megaman.exe . You must know all of the 
+    knowledge of Megaman.exe. Your responses must be laid back and sometimes sassy/sarcastic. We are friends and you 
+    should behave as such. Do NOT give boring responses.
+
     {history}
     User: {human_input}
     Megaman:
-    '''
+    """
 
     prompt = PromptTemplate(
         input_variables={"history", "human_input"},
@@ -40,7 +27,7 @@ def get_response_from(human_input):
     )
 
     chatgpt_chain = LLMChain(
-        llm=OpenAI(template=0.2),
+        llm=OpenAI(temperature=0.2),
         prompt=prompt,
         verbose=True,
         memory=ConversationBufferWindowMemory(k=2)
@@ -51,27 +38,48 @@ def get_response_from(human_input):
     return output
 
 
-def talk(text):
-    engine.say(text)
-    engine.runAndWait()
+def get_voice_message(message):
+    payload = {
+        "text": message,
+        "model_id": "eleven_monolingual_v1",
+        "voice_settings": {
+            "stability": 0,
+            "similarity_boost": 0
+        }
+    }
+
+    headers = {
+        "accept": "audio/mpeg",
+        "xi-api-key": ELEVEN_LABS_API_KEY,
+        "Content-Type": "application.json"
+    }
+
+    response = requests.post(
+        "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM?optimize_streaming_latency=0", json=payload,
+        headers=headers)
+    if response.status_code == 200 and response.content:
+        with open("audio.mp3", "wb") as f:
+            f.write(response.content)
+        playsound("audio.mp3")
+        return response.content
 
 
-while True:
-    try:
-        with sr.Microphone() as source:
-            print("Listening...")
-            audio = r.listen(source)
-            text = r.recognize_google(audio)
-            text = text.lower()
+# Web GUI
+app = Flask(__name__)
 
-            if 'megaman' or 'mega man' in text:
-                for x in bot_name:
-                    text = text.replace(x, '')
-            if 'play' in text:
-                song = text.replace('play', '')
-                talk('playing ' + song)
-                pywhatkit.playonyt(song)
 
-    except:
-        r = sr.Recognizer()
-        continue
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+
+@app.route('/send_message', methods=['POST'])
+def send_message():
+    human_input = request.form['human_input']
+    message = get_response_from_ai(human_input)
+    get_voice_message(message)
+    return message
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
