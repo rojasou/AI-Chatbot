@@ -11,14 +11,15 @@ ELEVEN_LABS_API_KEY = os.getenv("ELEVEN_LABS_API_KEY")
 
 
 def get_response_from_ai(human_input):
-    template = """I want you to act like Megaman.exe from the series Megaman NT Warrior. I want you to respond and 
-    answer like Megaman.exe. Do not write any explanations. Only answer like Megaman.exe . You must know all of the 
-    knowledge of Megaman.exe. Your responses must be laid back and sometimes sassy/sarcastic. We are friends and you 
-    should behave as such. Do NOT give boring responses.
+    template = """I want you to act as an interviewer. I will be the candidate and you will ask me the interview 
+    questions for the position position. I want you to only reply as the interviewer. Do not write all the conservation 
+    at once. I want you to only do the interview with me. Ask me the questions and wait for my answers. Do not write 
+    explanations. Ask me the questions one by one like an interviewer does and wait for my answers. My first sentence is 
+    "Hi"
 
     {history}
     User: {human_input}
-    Megaman:
+    Interviewer:
     """
 
     prompt = PromptTemplate(
